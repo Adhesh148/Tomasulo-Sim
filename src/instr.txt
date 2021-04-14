@@ -1,0 +1,10 @@
+ldr r3, #4;
+str #5, r2;
+add r1, r2, r3;
+mul r5, r6, r7;
+add r10, r20, r10;
+nand r9,r1,r3;
+ldr r2, r3;
+fadd r22,r2,r3;
+sub r19, r12, r26;
+sub r1, r12, r26;

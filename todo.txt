@@ -1,0 +1,48 @@
+Reservation Stations:
+name,
+operation,
+busy state
+value of op1, op2,
+src of op1 and op2 - rs1 and rs2,
+
+
+Reservations Stations:
+6 reservation stations:
+
+1. Addition              -  4
+2. Multiplication        -  2
+3. FADD                  -  2
+4. FMUL                  -  2
+5. Logical Unit          -  4
+6. LOAD/STORE            -  2 (changed from 4)
+
+Addition:
+1. ADD
+2. ADDC
+3. SUB
+4. SUBC
+
+Multiplication:
+1. MUL
+
+FADD:
+1. FADD
+2. FSUB
+
+FMUL:
+1. FMUL
+
+LU:
+1. AND
+2. OR
+3. NAND
+4. NOR
+5. XOR
+6. NOT
+7. 2s complement - NEG
+
+LOAD/STORE:
+1. LOAD
+2. STORE
+
+HALT
