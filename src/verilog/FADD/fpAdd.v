@@ -29,10 +29,10 @@ module shiftMantissa(shift, D);
 
 	// If D > 24 then just set shift to 24
 	always @(D) begin
-		if(D <= 'd24) begin
+		if(D <= 'd23) begin
 			shift = D[5:0];
 		end else begin
-			shift = 'd24;
+			shift = 'd23;
 		end
 	end
 endmodule

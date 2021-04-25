@@ -10,6 +10,14 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 import parser
 import re
 
+# Import all the test bench generators
+import ADDSolver
+import MULSolver
+import LUSolver
+import FADDSolver
+import FMULSolver
+
+
 cycles = 0
 filename = "instr.txt"
 
@@ -34,8 +42,12 @@ exec_entries = []
 
 writeBack_list = []
 
+print_list = []
+
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
+        global print_list
+
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(1643, 942)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
@@ -345,20 +357,40 @@ class Ui_MainWindow(object):
         # On clicking "Reset" btn - reset everything : all tables and functions
         self.pushButton_2.clicked.connect(lambda: self.onReset(self.pushButton_2))
 
+        # Print
+        print_list.append("                                       -----------------------------------------------------------------------")
+        print_list.append("                                  ------------------ Tomasulo Algorithm Simulation -----------------")
+        print_list.append("                                       ------------------------------------------------------------------------\n")
+        #print_list.append("\n")
+        self.printStatus()
+
     def nextCycle(self, nextBtn):
         global cycles
         global current_instrs
+        global print_list
 
         cycles += 1
-        self.writeBack()
-        self.executeInstrs()
+        
+        print_list.append("Cycle - "+str(cycles))
+        print_list.append("-------------------------------------")
+
+        printW = self.writeBack()
+        printX = self.executeInstrs()
+        printI = []
         if len(current_instrs) > 0:
-            self.issueNextInstr()
+            printI = self.issueNextInstr()
+
+        print_list.extend(printI)
+        print_list.extend(printX)
+        print_list.extend(printW)
+        print_list.append("\n")
+        self.printStatus()
         
     def loadFile(self, loadBtn):
         global filename
         global instructions
         global current_instrs
+        global print_list
 
         # Call reset first
         self.onReset(self.pushButton_2)
@@ -366,8 +398,10 @@ class Ui_MainWindow(object):
         # Create a file object of the parser class
         fo = parser.myParser(filename)
         instructions = fo.extractAll()
-        print("[File] File has been loaded successfuly ...")
-        print("[Register] Registers have been reset ...")
+
+        print_list.append("[LOAD] File has been successfully loaded.")
+        #print("[File] File has been loaded successfuly ...")
+        #print("[Register] Registers have been reset ...")
 
         # Load the first 5 instructions into the instruction queue
         if len(instructions) > 5:
@@ -377,9 +411,12 @@ class Ui_MainWindow(object):
             current_instrs = instructions.copy()
             instructions = []
 
-        print(instructions)
+        #print(instructions)
         self.updateInstrTable()
-        print("[Update] Instruction Table has been updated ...")
+        #print("[Update] Instruction Table has been updated ...")
+        print_list.append("[LOAD] Instruction Queue has been updated.\n")
+
+        self.printStatus()
 
     def onReset(self, resetBtn):
         """
@@ -390,10 +427,12 @@ class Ui_MainWindow(object):
         global cycles
         global RS_ADD, RS_MUL, RS_FADD, RS_FMUL, RS_LU, RS_LOAD, RS
         global exec_entries, exec_list, writeBack_list
+        global print_list
 
         cycles = 0
 
-        print("[Reset] Reset activated ...")
+        print_list.append("[Reset] Reset Activated.")
+        #print("[Reset] Reset activated ...")
         self.resetRegisters()
 
         instructions = []
@@ -414,7 +453,9 @@ class Ui_MainWindow(object):
         exec_list = []
         writeBack_list = []
 
-        print("[Reset] Sucessful ...")
+        print_list.append("[Reset] Reset Successful.\n")
+        self.printStatus()
+        #print("[Reset] Reset Successful")
 
     def resetRegisters(self,):
         global registers
@@ -429,6 +470,7 @@ class Ui_MainWindow(object):
         global registers
 
         isIssued = 0
+        printI = []
 
         nextInstr = current_instrs[0]
         op = nextInstr[0].upper()
@@ -447,7 +489,8 @@ class Ui_MainWindow(object):
 
         if freeRSIndx == -1:
             print("RS Full")
-            return
+            printI.append("[Issue] Reservation Stations FULL.")
+            return printI
         
         # Extract Destination
         if op == "STR":
@@ -458,9 +501,13 @@ class Ui_MainWindow(object):
         # Check if the destination register is free
         if registers[dst][0] != None:
             print("Destination clash")
-            return
+            printI.append("[Issue] Clash with Destination Register.")
+            return printI
 
         isIssued = 1
+
+        instr_str = nextInstr[0] + " " + ", ".join(nextInstr[1:-1]) + ", "+ nextInstr[-1]+";"
+        printI.append("[Issue] "+instr_str+" Issued.")
 
         # Extract Opnds
         if op == "STR":
@@ -498,22 +545,23 @@ class Ui_MainWindow(object):
                     rs1 = registers[int(opnd1)][0]
                     val1 = None
 
-            opnd2 = float(re.findall(r'\d+[.]?\d*',nextInstr[3])[0])
-            if '#' in nextInstr[3]:
-                rs2 = None
-                val2 = opnd2
-            else:
-                if registers[int(opnd2)][0] == None:
-                    val2 = float(registers[int(opnd2)][1])
+            if nextInstr[0].upper() not in ["NOT","NEG"]:
+                opnd2 = float(re.findall(r'\d+[.]?\d*',nextInstr[3])[0])
+                if '#' in nextInstr[3]:
+                    rs2 = None
+                    val2 = opnd2
                 else:
-                    rs2 = registers[int(opnd2)][0]
-                    val2 = None
+                    if registers[int(opnd2)][0] == None:
+                        val2 = float(registers[int(opnd2)][1])
+                    else:
+                        rs2 = registers[int(opnd2)][0]
+                        val2 = None
 
-            if op not in ["FADD","FMUL","FSUB"]:
-                if val1 != None:
-                    val1 = int(val1)
-                if val2 != None:
-                    val2 = int(val2)
+                if op not in ["FADD","FMUL","FSUB"]:
+                    if val1 != None:
+                        val1 = int(val1)
+                    if val2 != None:
+                        val2 = int(val2)
 
         # Update destination register
         registers[dst][0] = str("RS_"+rsName+"_"+str(freeRSIndx))
@@ -533,6 +581,8 @@ class Ui_MainWindow(object):
             self.updateRegisterTable()
             self.updateInstrTable()
             self.updateRSTables(op = op,indx = freeRSIndx, entry = entry, rsName= rsName)
+
+        return printI
 
     def isRSFree(self, op):
         global RS
@@ -570,6 +620,8 @@ class Ui_MainWindow(object):
         global exec_list
         global RS
         global exec_entries
+
+        printE = []
 
         # Check all RS to see if any instr is ready to be executed
         
@@ -629,8 +681,8 @@ class Ui_MainWindow(object):
 
         print(exec_entries)
   
-        self.updateExistExec()
-        pass
+        printE = self.updateExistExec()
+        return printE
 
     def updateExistExec(self,):
         global exec_list
@@ -638,8 +690,10 @@ class Ui_MainWindow(object):
         global writeBack_list
 
         toDel = []
+        printE = []
         for i in range(len(exec_entries)):
             exec_entries[i][4] -= 1
+            printE.append("[Exec] "+ exec_entries[i][0] + " Executed;    # Cycles Remaining = "+str(exec_entries[i][4]))
             if exec_entries[i][4] == 0:
                 # Remove from both lists and append to writeBack list
                 writeBack_list.append([exec_entries[i][0],self.solve(rsName = exec_entries[i][0],op = exec_entries[i][1],opnd1 = exec_entries[i][2], opnd2 = exec_entries[i][3])])
@@ -649,61 +703,85 @@ class Ui_MainWindow(object):
             exec_entries.pop(i)
             exec_list.pop(i)
 
-        print("wb =",writeBack_list)
+        return printE
+        #print("wb =",writeBack_list)
 
     def solve(self, rsName, op, opnd1, opnd2):
         op_category = rsName.split("_")[1]
         #print("Solve",op_category,op,opnd1,opnd2)
 
         if op_category == "ADD":
-            if op == "ADDC":
-                return opnd1 + opnd2 + 1
-            elif op == "SUB":
-                return opnd1 - opnd2
-            elif op == "SUBB":
-                return opnd1 - opnd2 + 1
-            else:
-                return opnd1 + opnd2
+            return self.solveADD(op, opnd1, opnd2)
         elif op_category == "MUL":
-            return opnd1 * opnd2
+            return self.solveMUL(opnd1,opnd2)
         elif op_category == "FADD":
-            if op == "FSUB":
-                return (opnd1 - opnd2)
-            else:
-                return (opnd1 + opnd2)
+            return self.solveFADD(op, opnd1, opnd2)
         elif op_category == "FMUL":
-            return opnd1 * opnd2
+            return self.solveFMUL(opnd1,opnd2)
         elif op_category == "LU":
-            if op == "AND":
-                return opnd1 & opnd2
-            elif op == "OR":
-                return opnd1 | opnd2
-            elif op == "NAND":
-                return ~(opnd1 & opnd2)
-            elif op == "NOR":
-                return ~(opnd1 | opnd2)
-            elif op == "XOR":
-                return opnd1 ^ opnd2
-            elif op == "NOT":
-                return ~opnd1
-            else:
-                return (~opnd1 + 1)
+            return self.solveLU(op,opnd1,opnd2)
         else:
             return opnd1
 
+    def solveADD(self,op,opnd1,opnd2):
+        print(op,opnd1,opnd2)
+        addObj = ADDSolver.ADDSolve(op, opnd1, opnd2)
+        result = addObj.solve()
+        print(result)
+        return result
+
+    def solveMUL(self, opnd1, opnd2):
+        mulObj = MULSolver.MULSolve(opnd1, opnd2)
+        result = mulObj.solve()
+        return result
+
+    def solveFADD(self,op, opnd1, opnd2):
+        faddObj = FADDSolver.FADDSolve(op, opnd1, opnd2)
+        result = faddObj.solve()
+        return result
+
+    def solveFMUL(self, opnd1, opnd2):
+        fmulObj = FMULSolver.FMULSolve(opnd1, opnd2)
+        result = fmulObj.solve()
+        return result
+
+    def solveLU(self,op,opnd1,opnd2):
+        if opnd1 < 0 or opnd2 < 0:
+            self.plainTextEdit.appendPlainText("[LU] Exception! Negative Opnd(s) Input.")
+            self.plainTextEdit.appendPlainText("[LU] Negative Opnd(s) cast to positive to handle execption.")
+            if opnd1 < 0:
+                opnd1 = opnd1 * -1
+            if opnd2 < 0:
+                opnd2 = opnd2 * -1
+        if type(opnd1) == float or type(opnd2) == float:
+            self.plainTextEdit.appendPlainText("[LU] Exception! Floating Point Opnd(s) Input.")
+            self.plainTextEdit.appendPlainText("[LU] Float Opnd(s) cast to int to handle execption.")
+            if type(opnd1) == float:
+                opnd1 = int(opnd1)
+            if type(opnd2) == float:
+                opnd2 = int(opnd1)
+
+        LUObj = LUSolver.LUSolve(op, opnd1, opnd2)
+        result = LUObj.solve()
+        return result
+        
     def writeBack(self):
         global writeBack_list
         global registers
         global RS
 
+        printW = []
+
         for i in range(len(writeBack_list)):
             rsName = writeBack_list[i][0]
+            printW.append("[Write Back] "+rsName+" is written back.")
 
             # Update the register Buffer - destination
             for j in range(32):
                 if registers[j][0] == rsName:
                     registers[j][0] = None
                     registers[j][1] = writeBack_list[i][1]
+                    printW.append("[Write Back] Register R"+str(j)+" updated via CDB")
                     # Cant be more than one destination
                     break
 
@@ -714,20 +792,23 @@ class Ui_MainWindow(object):
             #Update all RS - check for any dependecy and write in the value
             for key in RS.keys():
                 opnd = writeBack_list[i][1]
-                if key not in ["FADD","FSUB","FMUL"]:
+                if key not in ["FADD","FSUB","FMUL"] and opnd != None:
+                    #print(opnd)
                     opnd = int(opnd)
                 for j in range(len(RS[key])):
                     if RS[key][j][1] == rsName:
                         entry = [RS[key][j][0],None , RS[key][j][2],opnd, RS[key][j][4], RS[key][j][5],RS[key][j][6]]
                         self.updateRSTables(op="",indx = j, entry = entry, rsName = key)
-                    elif RS[key][j][1] == rsName:
+                        printW.append("[Write Back] RS_"+key+"_"+str(j)+" Opnd1 Val updated via CDB")
+                    elif RS[key][j][2] == rsName:
                         entry = [RS[key][j][0],RS[key][j][1] ,None, RS[key][j][3], opnd, RS[key][j][5],RS[key][j][6]]
                         self.updateRSTables(op="",indx = j, entry = entry, rsName = key)
+                        printW.append("[Write Back] RS_"+key+"_"+str(j)+" Opnd2 Val updated via CDB")
 
         writeBack_list = []
         self.updateRegisterTable()
 
-        pass
+        return printW
 
         
     def updateRegisterTable(self,):
@@ -811,6 +892,14 @@ class Ui_MainWindow(object):
             if rsName == "LOAD":
                 for j in range(7):
                     self.tableWidget_6.setItem(indx, j, QtWidgets.QTableWidgetItem(str(entry[j])))
+
+    def printStatus(self):
+        global print_list
+
+        for item in print_list:
+            self.plainTextEdit.appendPlainText(item)
+
+        print_list = []
 
 
     def retranslateUi(self, MainWindow):

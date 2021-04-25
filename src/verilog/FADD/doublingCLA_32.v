@@ -103,8 +103,6 @@ module doublingCLA_32(Sum,Cout,A,B,Cin);
 	assign x_0[30][1] = B[30];
 	assign x_0[31][1] = B[31];
 
-
-
 	// 1st Stage of KGP - Recursive Doubling
 	parallelPrefixCkt p0_31(x_1[31],x_0[31],x_0[30]);
 	parallelPrefixCkt p0_30(x_1[30],x_0[30],x_0[29]);
@@ -309,7 +307,6 @@ module doublingCLA_32(Sum,Cout,A,B,Cin);
 	assign carry[29] = x_5[29][0];
 	assign carry[30] = x_5[30][0];
 	assign carry[31] = x_5[31][0];
-
 
 	// Compute Sum
 	assign Sum[0] = xorSum[0];
